@@ -288,7 +288,11 @@ public class LanguageInformationResolver: TypeResolver
 
         TypedExpression callTarget = callExpression.CallTarget.Resolve(this);
 
-        if (!callTarget.TypeInfo.IsFunctionPtr) throw new ParsingException(callExpression.Token, $"expect call target to be of type fn[...,t] but got {callTarget.TypeInfo}");
+        if (!callTarget.TypeInfo.IsFunctionPtr)
+        {
+            AddValidationError(callExpression.Token, $"expect call target to be of type fn[...,t] but got {callTarget.TypeInfo}");
+            return new TypedCallExpression(callTarget.TypeInfo.FunctionReturnType, callExpression, callTarget, args);
+        }
 
         if (args.Count != callTarget.TypeInfo.FunctionParameterTypes.Count)
         {
@@ -322,12 +326,23 @@ public class LanguageInformationResolver: TypeResolver
     public override TypedExpression Resolve(GetExpression getExpression)
     {
         var instance = getExpression.Instance.Resolve(this);
+        ReclassifyToken(getExpression.TargetField, ReclassifiedTokenTypes.TypeField);
         if (instance.TypeInfo.IsValidNormalPtr && instance.TypeInfo.GenericTypeArgument!.IsStructType)
         {
-            var fieldType = instance.TypeInfo.GenericTypeArgument.GetFieldType(getExpression.TargetField);
-            return new TypedGetExpression(fieldType, getExpression, instance, ReclassifyToken(getExpression.TargetField, ReclassifiedTokenTypes.TypeField), getExpression.ShortCircuitOnNull);
+            try
+            {
+                var fieldType = instance.TypeInfo.GenericTypeArgument.GetFieldType(getExpression.TargetField);
+                return new TypedGetExpression(fieldType, getExpression, instance, getExpression.TargetField, getExpression.ShortCircuitOnNull);
+            }
+            catch (ParsingException pe)
+            {
+                _programContext.AddValidationError(pe);
+                return new TypedGetExpression(TypeInfo.Void, getExpression, instance, getExpression.TargetField, getExpression.ShortCircuitOnNull);
+            }
+            
         }
-        throw new ParsingException(getExpression.Token, $"expect valid pointer type on left hand side of member accessor");
+        AddValidationError(getExpression.Token, $"expect valid pointer type on left hand side of member accessor");
+        return new TypedGetExpression(TypeInfo.Void, getExpression, instance, getExpression.TargetField, getExpression.ShortCircuitOnNull);
     }
 
     public override TypedExpression Resolve(IdentifierExpression identifierExpression)
@@ -378,7 +393,8 @@ public class LanguageInformationResolver: TypeResolver
             return new TypedLiteralExpression(TypeInfo.Integer, literalExpression, literalExpression.Value);
         if (literalExpression.Value.GetType() == typeof(float))
             return new TypedLiteralExpression(TypeInfo.Float, literalExpression, literalExpression.Value);
-        throw new ParsingException(literalExpression.Token, $"unsupported literal type {literalExpression.Value.GetType().Name}");
+        AddValidationError(literalExpression.Token, $"unsupported literal type {literalExpression.Value.GetType().Name}");
+        return new TypedLiteralExpression(TypeInfo.Void, literalExpression, null);
     }
 
     public override TypedExpression Resolve(LocalVariableExpression localVariableExpression)
@@ -652,8 +668,10 @@ public class LanguageInformationResolver: TypeResolver
             return new TypedIdentifierExpression(foundType, identifierExpression, identifierExpression.Token);
         }
         if (!_localVariableTypeMap.TryGetValue(identifierExpression.Token.Lexeme, out foundType))
+        {
             AddValidationError(identifierExpression.Token, $"unresolved symbol {identifierExpression.Token.Lexeme}");
-        foundType = TypeInfo.Void;
+            foundType = TypeInfo.Void;
+        }
         ReclassifyToken(identifierExpression.Token, ReclassifiedTokenTypes.Variable);
         return new TypedIdentifierExpression(foundType, identifierExpression, identifierExpression.Token);
     }
