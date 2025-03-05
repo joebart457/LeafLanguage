@@ -553,7 +553,10 @@ public class TypeResolver
             ReclassifyToken(identifierExpression.Token, ReclassifiedTokenTypes.ImportedFunction);
             return importedFunctionWithMatchingName;
         }
-        return null;
+
+        // If we get here try to infer the types of the call
+        if (!_genericFunctionDefinitions.ContainsKey(identifierExpression.Token.Lexeme)) return null;
+        return ResolveCallTarget((GenericFunctionReferenceExpression)new GenericFunctionReferenceExpression(identifierExpression.Token, new()).CopyStartAndEndTokens(identifierExpression));
     }
 
     protected virtual ITypedFunctionInfo ResolveCallTarget(GenericFunctionReferenceExpression genericFunctionReferenceExpression, List<TypedExpression> arguments)

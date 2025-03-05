@@ -291,7 +291,7 @@ public class LanguageInformationResolver: TypeResolver
         if (!callTarget.TypeInfo.IsFunctionPtr)
         {
             AddValidationError(callExpression.Token, $"expect call target to be of type fn[...,t] but got {callTarget.TypeInfo}");
-            return new TypedCallExpression(callTarget.TypeInfo.FunctionReturnType, callExpression, callTarget, args);
+            return new TypedCallExpression(TypeInfo.Void, callExpression, callTarget, args);
         }
 
         if (args.Count != callTarget.TypeInfo.FunctionParameterTypes.Count)
@@ -597,7 +597,8 @@ public class LanguageInformationResolver: TypeResolver
             ReclassifyToken(identifierExpression.Token, ReclassifiedTokenTypes.ImportedFunction);
             return importedFunctionWithMatchingName;
         }
-        return null;
+        if (!_genericFunctionDefinitions.ContainsKey(identifierExpression.Token.Lexeme)) return null;
+        return ResolveCallTarget((GenericFunctionReferenceExpression)new GenericFunctionReferenceExpression(identifierExpression.Token, new()).CopyStartAndEndTokens(identifierExpression));
     }
 
     protected override ITypedFunctionInfo ResolveCallTarget(GenericFunctionReferenceExpression genericFunctionReferenceExpression, List<TypedExpression> arguments)

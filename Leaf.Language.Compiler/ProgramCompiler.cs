@@ -15,8 +15,19 @@ public class X86ProgramCompiler
     public string? EmitBinary(CompilationOptions options)
     {
         var result = Compile(options);
-        var error = result.OutputToFile(options.OutputPath);
-        return error;
+        var error = result.OutputToPeFile(out var peFile);
+        if (error != null) return error;
+        if (!string.IsNullOrWhiteSpace(options.AssemblyPath))
+            File.WriteAllText(options.AssemblyPath, peFile.OutputAsText());
+        try
+        {
+            var assembledBytes = peFile.AssembleProgram(null);
+            File.WriteAllBytes(options.OutputPath, assembledBytes);
+            return null;
+        } catch(Exception ex)
+        {
+            return ex.Message;
+        }
     }
 
     public X86AssemblyContext Compile(CompilationOptions options)
