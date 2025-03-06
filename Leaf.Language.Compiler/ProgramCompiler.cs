@@ -4,6 +4,7 @@ using Leaf.Language.Compiler.Models;
 using Leaf.Language.Compiler.Optimizer;
 using Leaf.Language.Core.Parser;
 using Leaf.Language.Core.StaticAnalysis;
+using Logger;
 
 namespace Leaf.Language.Compiler;
 
@@ -18,11 +19,16 @@ public class X86ProgramCompiler
         var error = result.OutputToPeFile(out var peFile);
         if (error != null) return error;
         if (!string.IsNullOrWhiteSpace(options.AssemblyPath))
+        {
             File.WriteAllText(options.AssemblyPath, peFile.OutputAsText());
+            if (options.LogSuccess) CliLogger.LogSuccess($"{options.InputPath} -> {options.AssemblyPath}");
+        }
+        
         try
         {
             var assembledBytes = peFile.AssembleProgram(null);
             File.WriteAllBytes(options.OutputPath, assembledBytes);
+            if (options.LogSuccess) CliLogger.LogSuccess($"{options.InputPath} -> {options.OutputPath}");
             return null;
         } catch(Exception ex)
         {
@@ -50,8 +56,11 @@ public class X86ProgramCompiler
         resolverResult.Functions.ForEach(x => x.Compile(context));
         resolverResult.ProgramIcon?.Compile(context);
         
-        //if (options.EnableOptimizations)
-            //context = _optimizer.Optimize(context, options.OptimizationPasses);
+        if (options.EnableOptimizations)
+        {
+            for (int i = 0; i < options.OptimizationPasses; i++)
+                X86AssemblyOptimizer.Optimize(context);
+        }
         return context;
     }
 }

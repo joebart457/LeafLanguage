@@ -248,7 +248,7 @@ public class TypeResolver
         var args = callExpression.Arguments.Select(x => x.Resolve(this)).ToList();
         ITypedFunctionInfo? directCallTarget = null;
         if (callExpression.CallTarget is IdentifierExpression identifierExpression)
-            directCallTarget = ResolveCallTarget(identifierExpression);
+            directCallTarget = ResolveCallTarget(identifierExpression, args);
         else if (callExpression.CallTarget is GenericFunctionReferenceExpression genericFunctionReferenceExpression)
             directCallTarget = ResolveCallTarget(genericFunctionReferenceExpression, args);
         if (directCallTarget != null)
@@ -538,7 +538,7 @@ public class TypeResolver
         throw new ParsingException(typeName, $"unsupported intrinsic type {intrinsicType}");
     }
 
-    protected virtual ITypedFunctionInfo? ResolveCallTarget(IdentifierExpression identifierExpression)
+    protected virtual ITypedFunctionInfo? ResolveCallTarget(IdentifierExpression identifierExpression, List<TypedExpression> arguments)
     {
         // Identifiers that are direct call targets will be handled differently IE
         // (printf msg) 
@@ -556,7 +556,7 @@ public class TypeResolver
 
         // If we get here try to infer the types of the call
         if (!_genericFunctionDefinitions.ContainsKey(identifierExpression.Token.Lexeme)) return null;
-        return ResolveCallTarget((GenericFunctionReferenceExpression)new GenericFunctionReferenceExpression(identifierExpression.Token, new()).CopyStartAndEndTokens(identifierExpression));
+        return ResolveCallTarget((GenericFunctionReferenceExpression)new GenericFunctionReferenceExpression(identifierExpression.Token, new()).CopyStartAndEndTokens(identifierExpression), arguments);
     }
 
     protected virtual ITypedFunctionInfo ResolveCallTarget(GenericFunctionReferenceExpression genericFunctionReferenceExpression, List<TypedExpression> arguments)

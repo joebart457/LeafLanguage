@@ -268,7 +268,7 @@ public class LanguageInformationResolver: TypeResolver
         var args = callExpression.Arguments.Select(x => x.Resolve(this)).ToList();
         ITypedFunctionInfo? directCallTarget = null;
         if (callExpression.CallTarget is IdentifierExpression identifierExpression)
-            directCallTarget = ResolveCallTarget(identifierExpression);
+            directCallTarget = ResolveCallTarget(identifierExpression, args);
         else if (callExpression.CallTarget is GenericFunctionReferenceExpression genericFunctionReferenceExpression)
             directCallTarget = ResolveCallTarget(genericFunctionReferenceExpression, args);
         if (directCallTarget != null)
@@ -294,7 +294,7 @@ public class LanguageInformationResolver: TypeResolver
             return new TypedCallExpression(TypeInfo.Void, callExpression, callTarget, args);
         }
 
-        if (args.Count != callTarget.TypeInfo.FunctionParameterTypes.Count)
+        if (args.Count == callTarget.TypeInfo.FunctionParameterTypes.Count)
         {
             for (int i = 0; i < callTarget.TypeInfo.FunctionParameterTypes.Count; i++)
             {
@@ -582,7 +582,7 @@ public class LanguageInformationResolver: TypeResolver
         return TypeInfo.Void;
     }
 
-    protected override ITypedFunctionInfo? ResolveCallTarget(IdentifierExpression identifierExpression)
+    protected override ITypedFunctionInfo? ResolveCallTarget(IdentifierExpression identifierExpression, List<TypedExpression> arguments)
     {
         // Identifiers that are direct call targets will be handled differently IE
         // (printf msg) 
@@ -598,7 +598,7 @@ public class LanguageInformationResolver: TypeResolver
             return importedFunctionWithMatchingName;
         }
         if (!_genericFunctionDefinitions.ContainsKey(identifierExpression.Token.Lexeme)) return null;
-        return ResolveCallTarget((GenericFunctionReferenceExpression)new GenericFunctionReferenceExpression(identifierExpression.Token, new()).CopyStartAndEndTokens(identifierExpression));
+        return ResolveCallTarget((GenericFunctionReferenceExpression)new GenericFunctionReferenceExpression(identifierExpression.Token, new()).CopyStartAndEndTokens(identifierExpression), arguments);
     }
 
     protected override ITypedFunctionInfo ResolveCallTarget(GenericFunctionReferenceExpression genericFunctionReferenceExpression, List<TypedExpression> arguments)

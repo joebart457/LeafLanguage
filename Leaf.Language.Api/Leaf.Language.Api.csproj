@@ -6,12 +6,12 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
-    <Version>0.1.5</Version>
+    <Version>0.1.7</Version>
     <Description>API for interacting with the Leaf programming language. Provides useful features for LSPs.</Description>
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Leaf.Language.Core" Version="0.1.4" />
+    <PackageReference Include="Leaf.Language.Core" Version="0.1.5" />
   </ItemGroup>
 
 
