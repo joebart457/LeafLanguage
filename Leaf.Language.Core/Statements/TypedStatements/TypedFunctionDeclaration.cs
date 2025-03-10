@@ -13,6 +13,7 @@ namespace Leaf.Language.Core.Statements.TypedStatements;
 
 public class TypedFunctionDefinition : TypedStatement, ITypedFunctionInfo
 {
+    public NamespaceSymbol Namespace { get; set; }
     public Token FunctionName { get; set; }
     public TypeInfo ReturnType { get; set; }
     public List<TypedParameter> Parameters { get; set; }
@@ -23,8 +24,9 @@ public class TypedFunctionDefinition : TypedStatement, ITypedFunctionInfo
     public bool IsImported => false;
     public Token FunctionSymbol => ExportedSymbol;
 
-    public TypedFunctionDefinition(StatementBase originalStatement, Token functionName, TypeInfo returnType, List<TypedParameter> parameters, List<TypedExpression> bodyStatements, CallingConvention callingConvention, bool isExported, Token exportedSymbol) : base(originalStatement)
+    public TypedFunctionDefinition(NamespaceSymbol @namespace, StatementBase originalStatement, Token functionName, TypeInfo returnType, List<TypedParameter> parameters, List<TypedExpression> bodyStatements, CallingConvention callingConvention, bool isExported, Token exportedSymbol) : base(originalStatement)
     {
+        Namespace = @namespace;
         FunctionName = functionName;
         ReturnType = returnType;
         Parameters = parameters;
@@ -75,8 +77,8 @@ public class TypedFunctionDefinition : TypedStatement, ITypedFunctionInfo
 
     public string GetDecoratedFunctionIdentifier()
     {
-        if (CallingConvention == CallingConvention.Cdecl) return $"_{FunctionName.Lexeme}";
-        if (CallingConvention == CallingConvention.StdCall) return $"_{FunctionName.Lexeme}@{Parameters.Count * 4}";
+        if (CallingConvention == CallingConvention.Cdecl) return $"_{Namespace}.{FunctionName.Lexeme}";
+        if (CallingConvention == CallingConvention.StdCall) return $"_{Namespace}.{FunctionName.Lexeme}@{Parameters.Count * 4}";
         throw new NotImplementedException($"No compiler support for calling convention {CallingConvention}");
     }
 
@@ -85,7 +87,7 @@ public class TypedFunctionDefinition : TypedStatement, ITypedFunctionInfo
         asm.EnterFunction(new 
             X86Function(
                 CallingConvention, 
-                FunctionName.Lexeme, 
+                $"{Namespace}.{FunctionName.Lexeme}", 
                 Parameters.Select(x => new X86FunctionLocalData(x.Name.Lexeme, x.TypeInfo.StackSize())).ToList(),
                 ExtractLocalVariableExpressions().Select(x => new X86FunctionLocalData(x.Identifier.Lexeme, x.VariableType.StackSize())).ToList(),
                 IsExported,

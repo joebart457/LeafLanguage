@@ -7,6 +7,7 @@ namespace Leaf.Language.Core.Models;
 
 public interface ITypedFunctionInfo
 {
+    public NamespaceSymbol Namespace { get; }
     public Token FunctionName { get; }
     public Token FunctionSymbol { get; }
     public TypeInfo ReturnType { get; }

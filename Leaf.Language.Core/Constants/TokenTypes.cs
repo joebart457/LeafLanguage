@@ -34,7 +34,7 @@ public static class TokenTypes
     public const string Local = "Local";
     public const string Export = "Export";
 
-    public const string Icon = "Icon";
+    public const string Namespace = "NamespaceDefinition";
 
 
     // The following token types are used purely for inline assembly parsing

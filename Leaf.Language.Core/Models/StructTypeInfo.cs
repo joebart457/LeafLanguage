@@ -6,10 +6,12 @@ namespace Leaf.Language.Core.Models;
 
 public class StructTypeInfo : TypeInfo
 {
+    public NamespaceSymbol Namespace { get; set; }
     public Token Name { get; private set; }
     public List<StructFieldInfo> Fields { get; private set; }
-    public StructTypeInfo(Token name, List<StructFieldInfo> fields) : base(IntrinsicType.Struct, null)
+    public StructTypeInfo(NamespaceSymbol @namespace, Token name, List<StructFieldInfo> fields) : base(IntrinsicType.Struct, null)
     {
+        Namespace = @namespace;
         Name = name;
         Fields = fields;
         ValidateFields();
@@ -60,6 +62,7 @@ public class StructTypeInfo : TypeInfo
         if (obj is StructTypeInfo typeInfo)
         {
             if (Name.Lexeme != typeInfo.Name.Lexeme) return false;
+            if (!Namespace.Equals(typeInfo.Namespace)) return false;
             if (Fields.Count != typeInfo.Fields.Count) return false;
             for (int i = 0; i < Fields.Count; i++)
             {
@@ -95,11 +98,11 @@ public class StructTypeInfo : TypeInfo
 
     public override TypeSymbol ToTypeSymbol()
     {
-        return new TypeSymbol(Name, []);
+        return new TypeSymbol(Namespace, Name, []);
     }
 
     public override string ToString()
     {
-        return Name.Lexeme;
+        return $"{Namespace}.{Name.Lexeme}";
     }
 }

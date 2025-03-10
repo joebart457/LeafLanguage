@@ -17,48 +17,35 @@ namespace Leaf.Language.Api;
 public class LanguageInformationResolver: TypeResolver
 {
     private ProgramContext _programContext = new();
-    public ProgramContext Resolve(string filePath)
+
+    public LanguageInformationResolver(ParsingResult parsingResult, Dictionary<NamespaceSymbol, TypeResolver> namespaces) : base(parsingResult, namespaces)
     {
-        var parser = new ProgramParser();
-        _programContext = new ProgramContext();
-        var result = parser.ParseFile(filePath, out var errors);
-        _programContext.Tokens = parser.GetTokens().ToList();
-        _programContext.ValidationErrors.AddRange(errors.Select(x => (x.Token, x.Message)));
-        ResolveWithTryCatch(result);
-        return _programContext;
     }
 
-    public ProgramContext ResolveText(string text)
+    public ProgramContext Resolve()
     {
-        var parser = new ProgramParser();
-        _programContext = new ProgramContext();
-        var result = parser.ParseText(text, out var errors);
-        _programContext.Tokens = parser.GetTokens().ToList();
-        _programContext.ValidationErrors.AddRange(errors.Select(x => (x.Token, x.Message)));
-        ResolveWithTryCatch(result);
-        return _programContext;
+        GatherSignatures();
+        return ResolveWithTryCatch();
     }
 
-    private void ResolveWithTryCatch(ParsingResult parsingResult)
+    public ProgramContext ResolveWithTryCatch()
     {
-        GatherSignatures(parsingResult);
-
-        foreach (var typeDefinition in parsingResult.TypeDefinitions)
+        foreach (var typeDefinition in _parsingResult.TypeDefinitions)
         {
             if (RunWithTryCatch(() => ResolveTypeDefinition(typeDefinition), out var resolved) && resolved != null)
                 _programContext.UserDefinedTypes.Add(resolved);
         }
-        foreach (var statement in parsingResult.ImportLibraryDefinitions)
+        foreach (var statement in _parsingResult.ImportLibraryDefinitions)
         {
             if (RunWithTryCatch(() => (TypedImportLibraryDefinition)statement.Resolve(this), out var resolved))
                 _programContext.ImportLibraryDefinitions.Add(resolved!);
         }
-        foreach (var statement in parsingResult.ImportedFunctionDefinitions)
+        foreach (var statement in _parsingResult.ImportedFunctionDefinitions)
         {
             if (RunWithTryCatch(() => (TypedImportedFunctionDefinition)statement.Resolve(this), out var resolved))
                 _programContext.ImportedFunctionDefinitions.Add(resolved!);
         }
-        foreach (var statement in parsingResult.FunctionDefinitions)
+        foreach (var statement in _parsingResult.FunctionDefinitions)
         {
             if (RunWithTryCatch(() => (TypedFunctionDefinition)statement.Resolve(this), out var resolved))
                 _programContext.FunctionDefinitions.Add(resolved!);
@@ -67,38 +54,38 @@ public class LanguageInformationResolver: TypeResolver
         _programContext.GenericFunctionDefinitions.AddRange(_genericFunctionDefinitions.Values);
         _programContext.FunctionDefinitions.AddRange(_lambdaFunctions);
         _programContext.FunctionDefinitions.Reverse();
-        if (parsingResult.ProgramIconStatement != null && RunWithTryCatch(() => (TypedProgramIconStatement)parsingResult.ProgramIconStatement.Resolve(this), out var typedProgramIconStatement))
-            _programContext.ProgamIcon = typedProgramIconStatement;
+        return _programContext;
     }
 
-    private void GatherSignatures(ParsingResult parsingResult)
+    public override void GatherSignatures()
     {
+        _programContext = new();
         _localVariableTypeMap = new();
         _functionDefinitions = new();
         _importedFunctionDefinitions = new();
         _importLibraries = new();
         _currentFunctionTarget = null;
-        foreach (var statement in parsingResult.TypeDefinitions)
+        foreach (var statement in _parsingResult.TypeDefinitions)
         {
             RunWithTryCatch(() => statement.GatherSignature(this));
         }
-        foreach (var statement in parsingResult.GenericTypeDefinitions)
+        foreach (var statement in _parsingResult.GenericTypeDefinitions)
         {
             RunWithTryCatch(() => statement.GatherSignature(this));
         }
-        foreach (var statement in parsingResult.GenericFunctionDefinitions)
+        foreach (var statement in _parsingResult.GenericFunctionDefinitions)
         {
             RunWithTryCatch(() => statement.GatherSignature(this));
         }
-        foreach (var statement in parsingResult.ImportLibraryDefinitions)
+        foreach (var statement in _parsingResult.ImportLibraryDefinitions)
         {
             RunWithTryCatch(() => statement.GatherSignature(this));
         }
-        foreach (var statement in parsingResult.ImportedFunctionDefinitions)
+        foreach (var statement in _parsingResult.ImportedFunctionDefinitions)
         {
             RunWithTryCatch(() => statement.GatherSignature(this));
         }
-        foreach (var statement in parsingResult.FunctionDefinitions)
+        foreach (var statement in _parsingResult.FunctionDefinitions)
         {
             RunWithTryCatch(() => statement.GatherSignature(this));
         }
@@ -109,11 +96,11 @@ public class LanguageInformationResolver: TypeResolver
 
     public override void GatherSignature(TypeDefinition typeDefinition)
     {
-        var typeSymbol = new TypeSymbol(typeDefinition.TypeName, new());
+        var typeSymbol = new TypeSymbol(_parsingResult.NamespaceSymbol, typeDefinition.TypeName, new());
         if (_resolvedTypes.ContainsKey(typeSymbol))
             AddValidationError(typeDefinition.TypeName, $"redefinition of named type {typeDefinition.TypeName.Lexeme}");
         ReclassifyToken(typeDefinition.TypeName, ReclassifiedTokenTypes.Type);
-        _resolvedTypes[typeSymbol] = new StructTypeInfo(typeDefinition.TypeName, new());
+        _resolvedTypes[typeSymbol] = new StructTypeInfo(_parsingResult.NamespaceSymbol, typeDefinition.TypeName, new());
     }
 
     public override void GatherSignature(GenericTypeDefinition genericTypeDefinition)
@@ -148,7 +135,7 @@ public class LanguageInformationResolver: TypeResolver
         if (_importedFunctionDefinitions.ContainsKey(functionDefinition.FunctionName.Lexeme))
             AddValidationError(functionDefinition.FunctionName, $"redefinition of symbol {functionDefinition.FunctionName.Lexeme}");
 
-        _functionDefinitions[functionDefinition.FunctionName.Lexeme] = new TypedFunctionDefinition(functionDefinition, ReclassifyToken(functionDefinition.FunctionName, ReclassifiedTokenTypes.Function), Resolve(functionDefinition.ReturnType), resolvedParameters, functionBody, functionDefinition.CallingConvention, functionDefinition.IsExported, functionDefinition.ExportedSymbol);
+        _functionDefinitions[functionDefinition.FunctionName.Lexeme] = new TypedFunctionDefinition(_parsingResult.NamespaceSymbol, functionDefinition, ReclassifyToken(functionDefinition.FunctionName, ReclassifiedTokenTypes.Function), Resolve(functionDefinition.ReturnType), resolvedParameters, functionBody, functionDefinition.CallingConvention, functionDefinition.IsExported, functionDefinition.ExportedSymbol);
     }
 
     public override void GatherSignature(ImportedFunctionDefinition importedFunctionDefinition)
@@ -171,7 +158,7 @@ public class LanguageInformationResolver: TypeResolver
         if (!_importLibraries.ContainsKey(importedFunctionDefinition.LibraryAlias.Lexeme))
             AddValidationError(importedFunctionDefinition.LibraryAlias, $"unable to import function from undefined library '{importedFunctionDefinition.LibraryAlias.Lexeme}'");
 
-        _importedFunctionDefinitions[importedFunctionDefinition.FunctionName.Lexeme] = new TypedImportedFunctionDefinition(importedFunctionDefinition, ReclassifyToken(importedFunctionDefinition.FunctionName, ReclassifiedTokenTypes.ImportedFunction), returnType, resolvedParameters, importedFunctionDefinition.CallingConvention, importedFunctionDefinition.LibraryAlias, importedFunctionDefinition.FunctionSymbol);
+        _importedFunctionDefinitions[importedFunctionDefinition.FunctionName.Lexeme] = new TypedImportedFunctionDefinition(_parsingResult.NamespaceSymbol, importedFunctionDefinition, ReclassifyToken(importedFunctionDefinition.FunctionName, ReclassifiedTokenTypes.ImportedFunction), returnType, resolvedParameters, importedFunctionDefinition.CallingConvention, importedFunctionDefinition.LibraryAlias, importedFunctionDefinition.FunctionSymbol);
     }
 
     public override void GatherSignature(ImportLibraryDefinition importLibraryDefinition)
@@ -185,18 +172,14 @@ public class LanguageInformationResolver: TypeResolver
     #endregion
 
     #region Statements
-    public override TypedStatement Resolve(ProgramIconStatement programIconStatement)
-    {
-        return new TypedProgramIconStatement(programIconStatement, programIconStatement.IconFilePath);
-    }
 
     public override StructTypeInfo ResolveTypeDefinition(TypeDefinition typeDefinition)
     {
-        var typeSymbol = new TypeSymbol(typeDefinition.TypeName, new());
+        var typeSymbol = new TypeSymbol(_parsingResult.NamespaceSymbol, typeDefinition.TypeName, new());
         if (!_resolvedTypes.TryGetValue(typeSymbol, out var foundType))
         {
             AddValidationError(typeDefinition.TypeName, $"unable to find type signature {typeSymbol}");
-            foundType = new StructTypeInfo(typeDefinition.TypeName, new());
+            foundType = new StructTypeInfo(_parsingResult.NamespaceSymbol, typeDefinition.TypeName, new());
         }
 
         foreach (var field in typeDefinition.Fields)
@@ -271,6 +254,8 @@ public class LanguageInformationResolver: TypeResolver
             directCallTarget = ResolveCallTarget(identifierExpression, args);
         else if (callExpression.CallTarget is GenericFunctionReferenceExpression genericFunctionReferenceExpression)
             directCallTarget = ResolveCallTarget(genericFunctionReferenceExpression, args);
+        else if (callExpression.CallTarget is GetExpression getExpression)
+            directCallTarget = ResolveCallTarget(getExpression, args);
         if (directCallTarget != null)
         {
             if (args.Count == directCallTarget.Parameters.Count)
@@ -325,6 +310,8 @@ public class LanguageInformationResolver: TypeResolver
 
     public override TypedExpression Resolve(GetExpression getExpression)
     {
+        if (TryConvertToNamespace(getExpression.Instance, out var @namespace))
+            return ResolveNamespace(@namespace!).Resolve(new IdentifierExpression(getExpression.TargetField).CopyStartAndEndTokens<IdentifierExpression>(getExpression));
         var instance = getExpression.Instance.Resolve(this);
         ReclassifyToken(getExpression.TargetField, ReclassifiedTokenTypes.TypeField);
         if (instance.TypeInfo.IsValidNormalPtr && instance.TypeInfo.GenericTypeArgument!.IsStructType)
@@ -531,6 +518,8 @@ public class LanguageInformationResolver: TypeResolver
         {
             ReclassifyToken(typeSymbol.TypeName, ReclassifiedTokenTypes.Type);
         }
+        if (typeSymbol.Namespace == null) typeSymbol.Namespace = _parsingResult.NamespaceSymbol;
+        else if (!typeSymbol.Namespace.Equals(_parsingResult.NamespaceSymbol)) return ResolveNamespace(typeSymbol.Namespace).Resolve(typeSymbol);
         if (_resolvedTypes.TryGetValue(typeSymbol, out var typeInfo))
             return typeInfo;
         if (typeSymbol.TypeArguments.Any() && _genericTypeDefinitions.TryGetValue(typeSymbol.TypeName.Lexeme, out var genericTypeDefinition))
@@ -582,7 +571,7 @@ public class LanguageInformationResolver: TypeResolver
         return TypeInfo.Void;
     }
 
-    protected override ITypedFunctionInfo? ResolveCallTarget(IdentifierExpression identifierExpression, List<TypedExpression> arguments)
+    public override ITypedFunctionInfo? ResolveCallTarget(IdentifierExpression identifierExpression, List<TypedExpression> arguments)
     {
         // Identifiers that are direct call targets will be handled differently IE
         // (printf msg) 
@@ -601,7 +590,7 @@ public class LanguageInformationResolver: TypeResolver
         return ResolveCallTarget((GenericFunctionReferenceExpression)new GenericFunctionReferenceExpression(identifierExpression.Token, new()).CopyStartAndEndTokens(identifierExpression), arguments);
     }
 
-    protected override ITypedFunctionInfo ResolveCallTarget(GenericFunctionReferenceExpression genericFunctionReferenceExpression, List<TypedExpression> arguments)
+    public override ITypedFunctionInfo ResolveCallTarget(GenericFunctionReferenceExpression genericFunctionReferenceExpression, List<TypedExpression> arguments)
     {
         if (genericFunctionReferenceExpression.TypeArguments.Count == 0)
         {
@@ -638,7 +627,7 @@ public class LanguageInformationResolver: TypeResolver
         return ResolveCallTarget(genericFunctionReferenceExpression);
     }
 
-    protected override ITypedFunctionInfo ResolveCallTarget(GenericFunctionReferenceExpression genericFunctionReferenceExpression)
+    public override ITypedFunctionInfo ResolveCallTarget(GenericFunctionReferenceExpression genericFunctionReferenceExpression)
     {
         var symbol = $"{genericFunctionReferenceExpression.Identifier.Lexeme}!{string.Join('_', genericFunctionReferenceExpression.TypeArguments.Select(x => x.GetFlattenedName()))}";
         if (_resolvedFunctionDefinitions.TryGetValue(symbol, out var resolvedFunctionDefinition))
@@ -660,6 +649,13 @@ public class LanguageInformationResolver: TypeResolver
         return typedFunctionDefinition;
     }
 
+    public override ITypedFunctionInfo? ResolveCallTarget(GetExpression getExpression, List<TypedExpression> arguments)
+    {
+        if (!TryConvertToNamespace(getExpression.Instance, out var @namespace) || @namespace == null)
+            return null;
+        return ResolveNamespace(@namespace).ResolveCallTarget(new IdentifierExpression(getExpression.TargetField).CopyStartAndEndTokens<IdentifierExpression>(getExpression), arguments);
+    }
+
     protected override TypedExpression ResolveSetTarget(IdentifierExpression identifierExpression)
     {
         var foundType = CurrentFunctionTarget.Parameters.Find(x => x.Name.Lexeme == identifierExpression.Token.Lexeme)?.TypeInfo;
@@ -675,6 +671,31 @@ public class LanguageInformationResolver: TypeResolver
         }
         ReclassifyToken(identifierExpression.Token, ReclassifiedTokenTypes.Variable);
         return new TypedIdentifierExpression(foundType, identifierExpression, identifierExpression.Token);
+    }
+
+    protected override bool TryConvertToNamespace(ExpressionBase expression, out NamespaceSymbol? namespaceSymbol)
+    {
+        if (expression is GetExpression getExpression)
+        {
+            if (!TryConvertToNamespace(getExpression.Instance, out namespaceSymbol) || namespaceSymbol == null)
+                return false;
+            namespaceSymbol = new NamespaceSymbol(namespaceSymbol.EnclosingNamespacePath.Append(namespaceSymbol.Name).ToList(), ReclassifyToken(getExpression.TargetField, ReclassifiedTokenTypes.Namespace));
+            return true;
+        }
+        else if (expression is IdentifierExpression identifierExpression && !IsResolvable(identifierExpression))
+        {
+            namespaceSymbol = new NamespaceSymbol(ReclassifyToken(identifierExpression.Token, ReclassifiedTokenTypes.Namespace));
+            return true;
+        }
+        namespaceSymbol = null;
+        return false;
+    }
+
+    protected override TypeResolver ResolveNamespace(NamespaceSymbol namespaceSymbol)
+    {
+        if (!_namespaces.TryGetValue(namespaceSymbol, out var typeResolver))
+            throw new ParsingException(namespaceSymbol.Name, $"namespace {namespaceSymbol} has not been defined");
+        return typeResolver;
     }
 
     private void AddValidationError(Token token, string message)

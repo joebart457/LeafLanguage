@@ -94,7 +94,7 @@ public class TypeInfo
 
     public virtual TypeSymbol ToTypeSymbol()
     {
-        return new TypeSymbol(CreateToken(IntrinsicType.ToString().ToLower()), GenericTypeArgument == null ? [] : [GenericTypeArgument.ToTypeSymbol()]);
+        return new TypeSymbol(null, CreateToken(IntrinsicType.ToString().ToLower()), GenericTypeArgument == null ? [] : [GenericTypeArgument.ToTypeSymbol()]);
     }
     protected static Token CreateToken(string lexeme) => new Token(TokenTypes.IntrinsicType, lexeme, Location.Zero, Location.Zero);
 }

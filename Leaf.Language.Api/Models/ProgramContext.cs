@@ -33,7 +33,6 @@ public class ProgramContext
     public List<(Token, string)> ValidationErrors { get; set; } = new();
     public List<Token> Tokens { get; set; } = new();
     public Dictionary<Token, List<Token>> References { get; set; } = new(new TokenEqualityComparer());
-    public TypedProgramIconStatement? ProgamIcon { get; set; }
     public FunctionContext? GetFunctionContext(int line, int column)
     {
         FunctionContext? match = null;

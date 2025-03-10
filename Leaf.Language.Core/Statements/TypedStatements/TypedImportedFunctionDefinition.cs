@@ -11,6 +11,7 @@ namespace Leaf.Language.Core.Statements.TypedStatements;
 
 public class TypedImportedFunctionDefinition : TypedStatement, ITypedFunctionInfo
 {
+    public NamespaceSymbol Namespace { get; set; }
     public Token FunctionName { get; set; }
     public TypeInfo ReturnType { get; set; }
     public List<TypedParameter> Parameters { get; set; }
@@ -20,8 +21,9 @@ public class TypedImportedFunctionDefinition : TypedStatement, ITypedFunctionInf
     public bool IsImported => true;
     public bool IsExported => false;
     public Token ExportedSymbol => throw new InvalidOperationException($"function {FunctionName.Lexeme} cannot be exported: export forwarding not supported");
-    public TypedImportedFunctionDefinition(StatementBase originalStatement, Token functionName, TypeInfo returnType, List<TypedParameter> parameters, CallingConvention callingConvention, Token libraryAlias, Token functionSymbol) : base(originalStatement)
+    public TypedImportedFunctionDefinition(NamespaceSymbol @namespace, StatementBase originalStatement, Token functionName, TypeInfo returnType, List<TypedParameter> parameters, CallingConvention callingConvention, Token libraryAlias, Token functionSymbol) : base(originalStatement)
     {
+        Namespace = @namespace;
         FunctionName = functionName;
         ReturnType = returnType;
         Parameters = parameters;
@@ -33,10 +35,11 @@ public class TypedImportedFunctionDefinition : TypedStatement, ITypedFunctionInf
 
     public string GetDecoratedFunctionIdentifier()
     {
-        if (CallingConvention == CallingConvention.Cdecl) return $"_{FunctionName.Lexeme}";
-        if (CallingConvention == CallingConvention.StdCall) return $"_{FunctionName.Lexeme}@{Parameters.Count * 4}";
-        throw new NotImplementedException();
+        if (CallingConvention == CallingConvention.Cdecl) return $"_{Namespace}.{FunctionName.Lexeme}";
+        if (CallingConvention == CallingConvention.StdCall) return $"_{Namespace}.{FunctionName.Lexeme}@{Parameters.Count * 4}";
+        throw new NotImplementedException($"No compiler support for calling convention {CallingConvention}");
     }
+
 
     public override void Compile(X86AssemblyContext asm)
     {

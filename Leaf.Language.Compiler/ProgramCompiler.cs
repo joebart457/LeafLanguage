@@ -12,10 +12,11 @@ namespace Leaf.Language.Compiler;
 public class X86ProgramCompiler
 {
     private readonly ProgramParser _parser = new();
-    private readonly TypeResolver _typeResolver = new();
+
+
     public string? EmitBinary(CompilationOptions options)
     {
-        var result = Compile(options);
+        var result = CompileSingleFile(options);
         var error = result.OutputToPeFile(out var peFile);
         if (error != null) return error;
         if (!string.IsNullOrWhiteSpace(options.AssemblyPath))
@@ -36,11 +37,12 @@ public class X86ProgramCompiler
         }
     }
 
-    public X86AssemblyContext Compile(CompilationOptions options)
+    public X86AssemblyContext CompileSingleFile(CompilationOptions options)
     {
         var parserResult = _parser.ParseFile(options.InputPath, out var errors);
         if (errors.Any()) throw new AggregateException(errors);
-        var resolverResult = _typeResolver.Resolve(parserResult);
+        var typeResolver = new TypeResolver(parserResult, new());
+        var resolverResult = typeResolver.ResolveAll();
         return Compile(resolverResult, options);
     }
 
@@ -54,7 +56,6 @@ public class X86ProgramCompiler
         resolverResult.ImportLibraries.ForEach(x => x.Compile(context));
         resolverResult.ImportedFunctions.ForEach(x => x.Compile(context));
         resolverResult.Functions.ForEach(x => x.Compile(context));
-        resolverResult.ProgramIcon?.Compile(context);
         
         if (options.EnableOptimizations)
         {

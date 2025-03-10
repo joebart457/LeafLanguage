@@ -9,16 +9,12 @@
     <GeneratePackageOnBuild>True</GeneratePackageOnBuild>
     <Title>Leaf.Language.Core</Title>
     <Description>Core functionaility for Leaf programming language.</Description>
-    <Version>0.1.5</Version>
+    <Version>0.2.3</Version>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="Assembler.Core" Version="0.2.27" />
-    <PackageReference Include="Tokenizer.Core" Version="0.1.3" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <Folder Include="TypedExpressions\" />
+    <PackageReference Include="Tokenizer.Core" Version="0.1.5" />
   </ItemGroup>
 
 </Project>

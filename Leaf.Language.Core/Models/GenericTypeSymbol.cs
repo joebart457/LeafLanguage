@@ -5,7 +5,7 @@ namespace Leaf.Language.Core.Models;
 
 public class GenericTypeSymbol : TypeSymbol
 {
-    public GenericTypeSymbol(Token typeName) : base(typeName, new())
+    public GenericTypeSymbol(Token typeName) : base(null, typeName, new())
     {
     }
 

@@ -1,4 +1,5 @@
-﻿using Leaf.Language.Core.Statements.TypedStatements;
+﻿using Leaf.Language.Core.Models;
+using Leaf.Language.Core.Statements.TypedStatements;
 using Leaf.Language.Core.StaticAnalysis;
 using Tokenizer.Core.Models;
 
@@ -25,3 +26,4 @@ public class ImportLibraryDefinition : StatementBase
         return typeResolver.Resolve(this);
     }
 }
+

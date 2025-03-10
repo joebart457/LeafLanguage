@@ -23,6 +23,13 @@ public abstract class ExpressionBase
 
     public abstract TypedExpression Resolve(TypeResolver typeResolver);
     public abstract ExpressionBase ReplaceGenericTypeSymbols(Dictionary<GenericTypeSymbol, TypeSymbol> genericToConcreteTypeMap);
+    public TExpression CopyStartAndEndTokens<TExpression>(ExpressionBase copyFrom) where TExpression : ExpressionBase
+    {
+        _startToken = copyFrom.StartToken;
+        _endToken = copyFrom.EndToken;
+        return (TExpression)this;
+    }
+
     public ExpressionBase CopyStartAndEndTokens(ExpressionBase copyFrom)
     {
         _startToken = copyFrom.StartToken;

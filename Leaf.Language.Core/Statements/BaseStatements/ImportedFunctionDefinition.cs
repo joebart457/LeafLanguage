@@ -24,14 +24,6 @@ public class ImportedFunctionDefinition : StatementBase
         FunctionSymbol = functionSymbol;
     }
 
-
-    public string GetDecoratedFunctionIdentifier()
-    {
-        if (CallingConvention == CallingConvention.Cdecl) return $"_{FunctionName.Lexeme}";
-        if (CallingConvention == CallingConvention.StdCall) return $"_{FunctionName.Lexeme}@{Parameters.Count * 4}";
-        throw new NotImplementedException();
-    }
-
     public override void GatherSignature(TypeResolver typeResolver)
     {
         typeResolver.GatherSignature(this);

@@ -95,6 +95,6 @@ public class FunctionPtrTypeInfo : TypeInfo
 
     public override TypeSymbol ToTypeSymbol()
     {
-        return new TypeSymbol(CreateToken(IntrinsicType.ToString().ToLower()), GetAllTypeArguments().Select(x => x.ToTypeSymbol()).ToList());
+        return new TypeSymbol(null, CreateToken(IntrinsicType.ToString().ToLower()), GetAllTypeArguments().Select(x => x.ToTypeSymbol()).ToList());
     }
 }

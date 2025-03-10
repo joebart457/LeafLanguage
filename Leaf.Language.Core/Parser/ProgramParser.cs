@@ -474,24 +474,34 @@ public class ProgramParser : TokenParser
         _tokenizer = Tokenizers.Default;
         OverrideCurrentOnNull = true;
     }
-    public ParsingResult ParseFile(string path, out List<ParsingException> errors)
+    public ParsingResult? ParseFile(string path, out List<ParsingException> errors)
     {
-        var result = ParseText(File.ReadAllText(path), out errors);
-        result.SourceFilePath = path;
+        var result = ParseText(File.ReadAllText(path), path, out errors);
         return result;
     }
 
-    public ParsingResult ParseText(string text, out List<ParsingException> errors)
+    public ParsingResult? ParseText(string text, string? sourcePath, out List<ParsingException> errors)
     {
         var tokenizer = Tokenizers.Default;
         errors = new List<ParsingException>();
-        var result = new ParsingResult();
+        
 
-        var tokens = tokenizer.Tokenize(text, false)
+        var tokens = tokenizer.Tokenize(text, sourcePath)
             .Where(token => token.Type != BuiltinTokenTypes.EndOfFile)
             .ToList();
 
         Initialize(tokens);
+        ParsingResult? result = null;
+        try
+        {
+            var @namespace = ParseNamespace();
+            result = new ParsingResult(@namespace);
+        } catch (ParsingException pe)
+        {
+            errors.Add(pe);
+            return null;
+        }
+
         while (!AtEnd())
         {
             try
@@ -505,11 +515,6 @@ public class ProgramParser : TokenParser
                 else if (next is GenericFunctionDefinition genericFunctionDefinition) result.GenericFunctionDefinitions.Add(genericFunctionDefinition);
                 else if (next is ImportedFunctionDefinition importedFunctionDefinition) result.ImportedFunctionDefinitions.Add(importedFunctionDefinition);
                 else if (next is ImportLibraryDefinition importLibraryDefinition) result.ImportLibraryDefinitions.Add(importLibraryDefinition);
-                else if (next is ProgramIconStatement programIconStatement)
-                {
-                    if (result.ProgramIconStatement != null) throw new ParsingException(programIconStatement.IconFilePath, $"program icon has already been set");
-                    result.ProgramIconStatement = programIconStatement;
-                }
                 else throw new ParsingException(next.Token, $"unsupported statement type {next.GetType().Name}");
             }
             catch (ParsingException e)
@@ -528,6 +533,26 @@ public class ProgramParser : TokenParser
             Advance();
             if (Match(TokenTypes.LParen)) break;
         }
+    }
+    private NamespaceSymbol ParseNamespace()
+    {
+        Consume(TokenTypes.LParen, "expect namespace declaration at start of file");
+        Consume(TokenTypes.Namespace, "expect (namespace my.namespace.here) at start of file");
+        var tokens = new List<Token>();
+        Token? name = null;
+        do
+        {
+            var next = Consume(BuiltinTokenTypes.Word, "expect namespace");
+            if (!AdvanceIfMatch(TokenTypes.Dot))
+            {
+                name = next;
+                break;
+            }
+            tokens.Add(next);
+        } while (Match(BuiltinTokenTypes.Word));
+
+        Consume(TokenTypes.RParen, "expect enclosing ) after namespace declaration");
+        return new NamespaceSymbol(tokens, name ?? throw new ParsingException(Previous(), "expect namespace declaration"));
     }
 
     private StatementBase? ParseNext()
@@ -576,6 +601,27 @@ public class ProgramParser : TokenParser
         if (AdvanceIfMatch(TokenTypes.IntrinsicType)) typeName = Previous();
         else typeName = Consume(BuiltinTokenTypes.Word, "expect type annotation");
         if (_validScopedGenericTypeParameters.TryGetValue(typeName.Lexeme, out var genericTypeSymbol)) return genericTypeSymbol;
+
+        NamespaceSymbol? @namespace = null;
+        if (AdvanceIfMatch(TokenTypes.Dot))
+        {
+            var tokens = new List<Token>();
+            tokens.Add(typeName);
+            do
+            {
+                var next = Consume(BuiltinTokenTypes.Word, "expect namespace");
+                tokens.Add(next);
+
+                if (!AdvanceIfMatch(TokenTypes.Dot)) break;
+            } while (Match(BuiltinTokenTypes.Word));
+            typeName = tokens.Last();
+            tokens.RemoveAt(tokens.Count - 1);
+            var namespaceName = tokens.Last();
+            tokens.RemoveAt(tokens.Count - 1);
+            @namespace = new NamespaceSymbol(tokens, namespaceName);
+        }
+        
+
         List<TypeSymbol> typeArguments = new();
         if (AdvanceIfMatch(TokenTypes.LBracket))
         {
@@ -587,7 +633,7 @@ public class ProgramParser : TokenParser
             Consume(TokenTypes.RBracket, "expect enclosing ] after type arguments");
         }
 
-        return new TypeSymbol(typeName, typeArguments);
+        return new TypeSymbol(@namespace, typeName, typeArguments);
     }
 
     private GenericTypeSymbol ParseGenericTypeSymbol()
@@ -610,16 +656,9 @@ public class ProgramParser : TokenParser
         if (AdvanceIfMatch(TokenTypes.Import)) return ParseImportedFunctionDefinition();
         if (AdvanceIfMatch(TokenTypes.Library)) return ParseImportLibraryDefinition();
         if (AdvanceIfMatch(TokenTypes.Type)) return ParseTypeDefinition();
-        if (AdvanceIfMatch(TokenTypes.Icon)) return ParseProgramIconStatement();
         throw new ParsingException(Current(), $"unexpected token {Current()}");
     }
 
-    public StatementBase ParseProgramIconStatement()
-    {
-        var iconFilePath = Consume(BuiltinTokenTypes.Word, "expect (icon `icon/file/path.ico`)");
-        Consume(TokenTypes.RParen, "expect enclosing ) after icon specifier");
-        return new ProgramIconStatement(iconFilePath);
-    }
 
     public StatementBase ParseFunctionDefinition(bool isExported = false)
     {
